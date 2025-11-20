@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / dynamically loaded files
+__pycache__/
+*.pyc
+*.pyd
+*.so
+
+# Environments
+.venv
+venv
+env
+
+# Editor/IDE Files (PyCharm)
+.idea/
+.vscode/
+
+# Build files
+dist/
+build/
+*.egg-info/
+
+# Logs and Data
+*.log
+*.sqlite3
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Credentials and Keys (Security)
+# If you use a separate file for your Binance API keys, add it here:
+secrets.py
+credentials.py
+*.key
