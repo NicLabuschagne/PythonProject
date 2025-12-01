@@ -34,5 +34,13 @@ and a correlation matrix to the target variable.
 * **Correlation Matrix:** Function related to display the absolute correlation from all variables to the target.
 
 ---
+## Model Development
 
+This modules core logic, primarily in `src/model.py` utilizes the Pytorch libray to forecast log returns.
+Two models were created, primarily the linear module, which was used in analysis for easier interoperability, while adding 
+a neural network model to compare results.
+
+Lastly, the performance summary is displayed in a data frame with key evaluation metrics. 
+
+---
 
