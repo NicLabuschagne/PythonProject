@@ -9,7 +9,7 @@ from typing import List
 
 client = Client()
 
-def get_historical_data(
+def get_digital_data(
         symbol: str = "BTCUSDT",
         interval: str = "4h",
         start_date:str = "2020-11-11") -> pl.DataFrame:
@@ -47,6 +47,21 @@ def get_historical_data(
         pl.col("volume")])
 
         return df.sort("date")
+
+
+# Define loading of data from Yfinance for traditional assets
+
+def get_traditional_data(
+        tickers: List[str],
+        interval: str = "1m",
+        start_date:str = "2020-11-11",
+        end_date:str = "2020-12-31")->pl.DataFrame:
+
+    pd_df = yfinance.download(tickers=tickers, interval=interval, start=start_date,
+                           end=end_date,group_by="ticker")
+
+    pl_df = pl.DataFrame(pd_df)
+    return pl_df
 
 
 # Feature Engineering

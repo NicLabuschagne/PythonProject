@@ -2,6 +2,7 @@ import polars as pl
 import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import List
+import pandas as pd
 
 # Create plotting distributions to visualize various types of distributions within the DF.
 
@@ -42,3 +43,31 @@ def display_feature_corr(
         return target_corr
 
 
+# Create a equity curve for cummulated log returns of predicted model
+
+import polars as pl
+import matplotlib.pyplot as plt
+
+def plot_cum_trade_log_returns(
+        df: pl.DataFrame,
+        target_col: str = "equity_curve") -> None:
+
+    # Select the target column and convert to a pandas series for plotting.
+    plot_data = df.select(pl.col(target_col)).to_series().to_pandas()
+    plt.figure(figsize=(12, 6))
+    plot_data.plot(
+        kind='line',
+        label='Cumulative Trade Log Returns',
+        linewidth=1.5,  # Optional: Make the line slightly thicker
+        color='darkblue'  # Optional: Choose a clear color
+    )
+
+    # 3. Add titles and labels
+    plt.title("Cumulative Trade Log Returns (Equity Curve)", fontsize=16, y=1.03)
+    plt.xlabel("Trade Number / Time Index")
+    plt.ylabel("Cumulative Log Return")
+    plt.grid(True, alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    plt.close()
