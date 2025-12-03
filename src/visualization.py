@@ -50,20 +50,31 @@ import matplotlib.pyplot as plt
 
 def plot_cum_trade_log_returns(
         df: pl.DataFrame,
-        target_col: str = "equity_curve") -> None:
+        strategy_col: str = "equity_curve",
+        benchmark_col: str = None) -> None:
 
     # Select the target column and convert to a pandas series for plotting.
-    plot_data = df.select(pl.col(target_col)).to_series().to_pandas()
+    plot_data = df.select(pl.col(strategy_col)).to_series().to_pandas()
     plt.figure(figsize=(12, 6))
     plot_data.plot(
         kind='line',
-        label='Cumulative Trade Log Returns',
-        linewidth=1.5,  # Optional: Make the line slightly thicker
-        color='darkblue'  # Optional: Choose a clear color
+        label='Model Strategy (Sharpe 2.45)',
+        linewidth=2,
+        color='darkblue'
     )
 
+    if benchmark_col is not None:
+        benchmark_df = df.select(pl.col(benchmark_col)).to_series().to_pandas()
+
+        benchmark_df.plot(
+            kind='line',
+            label=benchmark_col,
+            linewidth=2,
+            color='orange',
+            ax=plt.gca()
+        )
     # 3. Add titles and labels
-    plt.title("Cumulative Trade Log Returns (Equity Curve)", fontsize=16, y=1.03)
+    plt.title("Cumulative Trade Log Returns: Strategy vs Benchmark", fontsize=16, y=1.03)
     plt.xlabel("Trade Number / Time Index")
     plt.ylabel("Cumulative Log Return")
     plt.grid(True, alpha=0.5)

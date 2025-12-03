@@ -10,7 +10,7 @@ from typing import List
 client = Client()
 
 def get_digital_data(
-        symbol: str = "BTCUSDT",
+        symbol: str,
         interval: str = "4h",
         start_date:str = "2020-11-11") -> pl.DataFrame:
 
@@ -36,9 +36,12 @@ def get_digital_data(
         df = df.with_columns([pl.col("date").cast(pl.Datetime(time_unit="ms")),
              pl.col(["open", "high", "low", "close", "volume"]).cast(pl.Float64)])
 
+        #df = df.with_columns(pl.lit(symbol).alias("symbol"))
+
     # Select columns for analysis
 
         df = df.select([
+        #pl.col("symbol"),
         pl.col("date"),
         pl.col("open"),
         pl.col("high"),

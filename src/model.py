@@ -11,14 +11,24 @@ from torchvision.transforms.v2.functional import to_tensor
 
 # Set Seed for reproducibility
 
+# In model_development.py - Final set_seeds function
+
 def set_seeds(seed: int = 99):
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
+
+    # 1. Standard PyTorch Seeds
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    # Recommended: Set deterministic behavior (can impact performance)
+
+    # 2. STRICT Determinism Flags (CRUCIAL for stability)
+    torch.use_deterministic_algorithms(True)
+
+    # Optional: Disables backend acceleration which can introduce non-determinism
+    os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
@@ -141,9 +151,9 @@ def train_model(
         raise ValueError(f"Unknown model type: {model_type}. Choose 'linear' or 'nn'.")
 
     # 2. DEFINITIONS FOR LOSS AND OPTIMIZER
-    criterion = nn.HuberLoss() # This can be experimented with for performance
+    criterion = nn.L1Loss() # This can be experimented with for performance
     # Hyperparameter
-    optimizer = optim.SGD(model.parameters(), lr=lr) # This can be experimented with for performance
+    optimizer = optim.Adam(model.parameters(), lr=lr) # This can be experimented with for performance
     #  optimizer = optim.Adam(model.parameters(), lr=lr)
     # 3. TRAINING LOOP
     print(f"Starting training for {epochs} epochs...")
@@ -167,7 +177,7 @@ def train_model(
 
 def evaluate_model(model: nn.Module, X_test: torch.Tensor) -> torch.Tensor:
     """Generates predictions on the test set."""
-    # Set the model to evaluation mode (crucial for Dropout/BatchNorm layers)
+    # Set the model to evaluation mode (crucial for Dropoutlayers)
     model.eval()
 
     # Disable gradient calculations (saves memory and speeds things up)
@@ -221,8 +231,21 @@ def get_trade_results(
         # Equity Curve: The cumulative sum of all trade log returns
         pl.col('trade_log_return').cum_sum().alias('equity_curve'),
     ])
+
+    # 4. Calculate Buy and Hold (B&H) Metrics
     trade_results = trade_results.with_columns(
-        (pl.col("equity_curve")-pl.col("equity_curve").cum_max()).alias("drawdown_log"))
+        # B&H Log Return is simply the actual return (y)
+        pl.col("y").alias("B_H_log_return")
+
+    ).with_columns(
+        # B&H Equity Curve: Cumulative sum of the B&H Log Return
+        pl.col("B_H_log_return").cum_sum().alias("B_H_equity_curve")
+
+    ).with_columns(
+        # Drawdown (calculated on the Strategy's Equity Curve)
+        (pl.col("equity_curve") - pl.col("equity_curve").cum_max()).alias("drawdown_log")
+    )
+
     return trade_results
 
 # Create a performance metrics Data Frame
