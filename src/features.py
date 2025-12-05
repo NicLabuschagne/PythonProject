@@ -3,6 +3,7 @@ import polars as pl
 from binance.client import Client
 from datetime import datetime
 from typing import List
+import yfinance as yf
 
 
 # Define loading of data from Binance
@@ -31,7 +32,7 @@ def get_digital_data(
                 "num_trades", "taker_buy_base", "taker_buy_quote", "ignore"]
 
     # Create Polars Dataframe
-        df = pl.DataFrame(klines, schema=cols)
+        df = pl.DataFrame(klines, schema=cols, orient="row")
 
         df = df.with_columns([pl.col("date").cast(pl.Datetime(time_unit="ms")),
              pl.col(["open", "high", "low", "close", "volume"]).cast(pl.Float64)])
@@ -56,11 +57,11 @@ def get_digital_data(
 
 def get_traditional_data(
         tickers: List[str],
-        interval: str = "1m",
+        interval: str = "1d",
         start_date:str = "2020-11-11",
         end_date:str = "2020-12-31")->pl.DataFrame:
 
-    pd_df = yfinance.download(tickers=tickers, interval=interval, start=start_date,
+    pd_df = yf.download(tickers=tickers, interval=interval, start=start_date,
                            end=end_date,group_by="ticker")
 
     pl_df = pl.DataFrame(pd_df)

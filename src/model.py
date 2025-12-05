@@ -169,8 +169,24 @@ def train_model(
             print(f"Epoch: {epoch:04d} | Loss: {loss.item():.6f}")
 
     print("\nTraining Complete.")
-    #print("Final weight:", model.weight.data)
-    #print("Final bias:", model.bias.data)
+
+    if model_type.lower() == "linear":
+        # Extract data from GPU/Graph to CPU numpy
+        weights = model.linear.weight.data.cpu().numpy().flatten()
+        bias = model.linear.bias.data.item()
+
+        print("-" * 30)
+        print(f"Model Bias (Drift): {bias:.6f}")
+        print("Model Weights (Feature Importance):")
+        for i, w in enumerate(weights):
+            print(f"  Feature {i}: {w:.6f}")
+
+        # INTERPRETATION HINT:
+        # If Feature 0 is Lag-1 Return:
+        # Positive Weight (+) = Momentum (Trend Follow)
+        # Negative Weight (-) = Mean Reversion (Fade)
+        print("-" * 30)
+
     return model
 
 # Evaluate Model Performance denoted by y_hat
@@ -191,7 +207,8 @@ def evaluate_model(model: nn.Module, X_test: torch.Tensor) -> torch.Tensor:
 
 def get_trade_results(
         y_hat: torch.Tensor,
-        y_test: torch.Tensor) -> pl.DataFrame:
+        y_test: torch.Tensor,
+        cost_bps: float = 0.0005) -> pl.DataFrame:
     """
     Calculates key trading metrics and constructs the equity curve.
 
@@ -224,27 +241,41 @@ def get_trade_results(
     )
 
     # 3. Calculate Trade Return and Equity Curve
-    trade_results = trade_results.with_columns([
-        # Trade Log Return: The actual return (y) multiplied by the signal (1 or -1)
-        (pl.col('signal') * pl.col('y')).alias('trade_log_return'),
-    ]).with_columns([
-        # Equity Curve: The cumulative sum of all trade log returns
-        pl.col('trade_log_return').cum_sum().alias('equity_curve'),
+    trade_results = trade_results.with_columns(
+        (pl.col('signal') * pl.col('y')).alias('trade_log_return_gross')
+    )
+    # CALCULATE TRANSACTION COSTS ---
+    # Calculate Turnover: Absolute change in position (0 to 1 = 1x cost, 1 to -1 = 2x cost)
+    # Log approximation of cost: ln(1 - fee)
+    cost_log = np.log(1 - cost_bps)
+
+    trade_results = trade_results.with_columns(
+        pl.col('signal').diff().abs().fill_null(0).alias('turnover')
+    ).with_columns(
+        (pl.col('turnover') * cost_log).alias('tx_cost_log')
+    )
+
+    # 4. Calculate NET Returns & Equity Curves
+    trade_results = trade_results.with_columns(
+        (pl.col('trade_log_return_gross') + pl.col('tx_cost_log')).alias('trade_log_return_net')
+    ).with_columns([
+        # Gross Curve
+        pl.col('trade_log_return_gross').cum_sum().alias('equity_curve_gross'),
+        # Net Curve
+        pl.col('trade_log_return_net').cum_sum().alias('equity_curve_net')
     ])
 
-    # 4. Calculate Buy and Hold (B&H) Metrics
+    # 5. Buy and Hold & Drawdowns (Based on NET curve)
     trade_results = trade_results.with_columns(
-        # B&H Log Return is simply the actual return (y)
         pl.col("y").alias("B_H_log_return")
-
     ).with_columns(
-        # B&H Equity Curve: Cumulative sum of the B&H Log Return
         pl.col("B_H_log_return").cum_sum().alias("B_H_equity_curve")
-
     ).with_columns(
-        # Drawdown (calculated on the Strategy's Equity Curve)
-        (pl.col("equity_curve") - pl.col("equity_curve").cum_max()).alias("drawdown_log")
+        # Calculate Drawdown on the NET equity curve
+        (pl.col("equity_curve_net") - pl.col("equity_curve_net").cum_max()).alias("drawdown_log")
     )
+
+    return trade_results
 
     return trade_results
 
@@ -259,7 +290,7 @@ def get_strategy_metrics(
 
 
 
-    strategy_returns = trade_results_df['trade_log_return']
+    strategy_returns = trade_results_df['trade_log_return_net']
     volatility = strategy_returns.std()
     mean_return = strategy_returns.mean()
 
@@ -272,7 +303,7 @@ def get_strategy_metrics(
         sharpe_ratio = ((mean_return - risk_free_rate) / volatility) * annual_factor_sqrt
 
     # METRICS
-    total_log_return = trade_results_df['trade_log_return'].sum()
+    total_log_return =strategy_returns.sum()
     # MDD calculation using Pandas
     max_drawdown = trade_results_df['drawdown_log'].min()
     drawdown_pct = np.exp(max_drawdown)-1
